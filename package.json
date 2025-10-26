@@ -1,0 +1,31 @@
+{
+  "name": "refinecti",
+  "version": "2.0.0",
+  "description": "Cyber Threat Intelligence extension for OpenRefine - Extract and process IOCs",
+  "scripts": {
+    "lint": "eslint scripts/*.js MOD-INF/*.js",
+    "lint:fix": "eslint --fix scripts/*.js MOD-INF/*.js"
+  },
+  "keywords": [
+    "openrefine",
+    "extension",
+    "cti",
+    "threat-intelligence",
+    "ioc",
+    "cybersecurity",
+    "osint"
+  ],
+  "author": "refineCTI Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/Refine-Osint.git",
+    "directory": "data/extensions/refineCTI"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

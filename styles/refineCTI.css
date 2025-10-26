@@ -1,0 +1,26 @@
+/*
+ * refineCTI Extension Styles
+ */
+
+/* Highlight defanged IOCs in the UI */
+.refineCTI-defanged {
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* Highlight normal IOCs in the UI */
+.refineCTI-ioc {
+    background-color: #d1ecf1;
+    border: 1px solid #0c5460;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* Menu item styling */
+#refineCTI {
+    font-weight: 500;
+}

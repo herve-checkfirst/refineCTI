@@ -1,0 +1,9 @@
+# Dependencies
+node_modules/
+
+# Documentation
+*.md
+
+# Other files
+*.css
+*.json

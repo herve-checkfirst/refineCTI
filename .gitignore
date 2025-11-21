@@ -11,3 +11,7 @@ npm-debug.log*
 *.swp
 *.swo
 *~
+.claude
+
+# Documentation interne
+ARCHITECTURE_ANALYSIS.md

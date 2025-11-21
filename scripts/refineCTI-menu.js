@@ -289,7 +289,9 @@
                 engine: JSON.stringify({
                     facets: [],
                     mode: 'row-based'
-                })
+                }),
+                start: 0,
+                limit: 1000000  // Very high limit to get all rows
             },
             success: function(data) {
                 // Find column cellIndex from the model
@@ -410,7 +412,9 @@
                 engine: JSON.stringify({
                     facets: [],
                     mode: 'row-based'
-                })
+                }),
+                start: 0,
+                limit: 1000000  // Very high limit to get all rows
             },
             success: function(data) {
                 // Find column cellIndex from the model

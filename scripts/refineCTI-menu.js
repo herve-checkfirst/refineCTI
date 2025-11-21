@@ -288,12 +288,26 @@
             module = RefineCTI;
         }
 
+        // Find the cellIndex for the column
+        var cellIndex = null;
+        for (var j = 0; j < theProject.columnModel.columns.length; j++) {
+            if (theProject.columnModel.columns[j].name === baseColumnName) {
+                cellIndex = theProject.columnModel.columns[j].cellIndex;
+                break;
+            }
+        }
+
+        if (cellIndex === null) {
+            alert('Column not found: ' + baseColumnName);
+            return;
+        }
+
         // Process each row to extract IOCs and build value map
         var valueMap = {};
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
-            if (row.cells && row.cells[columnIndex]) {
-                var cell = row.cells[columnIndex];
+            if (row.cells && row.cells[cellIndex]) {
+                var cell = row.cells[cellIndex];
                 if (cell && cell.v) {
                     var originalValue = String(cell.v);
                     if (!valueMap[originalValue]) {
@@ -381,7 +395,7 @@
 
     // Perform defang/fang transformation on existing column
     function performDefangFang(column, operation) {
-        var columnIndex = Refine.columnNameToColumnIndex(column.name);
+        var baseColumnName = column.name;
 
         // Access data directly from theProject
         var rows = theProject.rowModel.rows;
@@ -390,12 +404,26 @@
             return;
         }
 
+        // Find the cellIndex for the column
+        var cellIndex = null;
+        for (var j = 0; j < theProject.columnModel.columns.length; j++) {
+            if (theProject.columnModel.columns[j].name === baseColumnName) {
+                cellIndex = theProject.columnModel.columns[j].cellIndex;
+                break;
+            }
+        }
+
+        if (cellIndex === null) {
+            alert('Column not found: ' + baseColumnName);
+            return;
+        }
+
         // Build a mapping of original values to transformed values
         var transformMap = {};
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
-            if (row.cells && row.cells[columnIndex]) {
-                var cell = row.cells[columnIndex];
+            if (row.cells && row.cells[cellIndex]) {
+                var cell = row.cells[cellIndex];
                 if (cell && cell.v) {
                     var value = String(cell.v);
                     if (!transformMap[value]) {

@@ -72,6 +72,7 @@ var RefineCTIIOC = (function() {
     /**
      * Extract domain names from text
      * Supports normal and defanged domains
+     * Strategy: Extract domains from URLs first, then look for standalone domains
      */
     function extractDomains(text, defangResult) {
         if (!text || typeof text !== 'string') {
@@ -80,15 +81,38 @@ var RefineCTIIOC = (function() {
 
         var domains = [];
 
-        // Pattern for domains (including defanged)
-        var domainPattern = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.|\[\.\]))+[a-zA-Z]{2,}\b/g;
-
-        var matches = text.match(domainPattern);
+        // First, extract domains from URLs
+        var urlPattern = /\b(?:h[xX]{0,2}tps?|h\[x{0,2}\]tps?|fxp|ftp)(?:\[:?\])?\/\/([^\s<>"{}|\\^`[\]/:?#]+)/gi;
+        var matches = text.match(urlPattern);
         if (matches) {
             matches.forEach(function(match) {
+                // Extract domain part from URL
+                var domainMatch = match.match(/\/\/([^\s<>"{}|\\^`[\]/:?#]+)/i);
+                if (domainMatch && domainMatch[1]) {
+                    var domain = RefineCTI.fang(domainMatch[1]);
+                    if (domain.indexOf('.') !== -1 && /\.[a-z]{2,}$/i.test(domain)) {
+                        domains.push(domain);
+                    }
+                }
+            });
+        }
+
+        // Then look for standalone domains (not part of URLs)
+        // Use negative lookbehind concept by temporarily removing URLs from text
+        var textWithoutUrls = text.replace(/\b(?:h[xX]{0,2}tps?|h\[x{0,2}\]tps?|fxp|ftp)(?:\[:?\])?\/\/[^\s<>"{}|\\^`[\]]+/gi, ' ');
+
+        // Pattern for standalone domains - more restrictive
+        // Must start with word boundary, have valid domain structure, end with TLD
+        var domainPattern = /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.|\[\.\]))+[a-zA-Z]{2,}\b/g;
+
+        var standaloneMatches = textWithoutUrls.match(domainPattern);
+        if (standaloneMatches) {
+            standaloneMatches.forEach(function(match) {
                 var domain = RefineCTI.fang(match);
-                // Basic validation
-                if (domain.indexOf('.') !== -1 && /\.[a-z]{2,}$/i.test(domain)) {
+                // Validate: must have a dot, end with valid TLD, not look like a file path
+                if (domain.indexOf('.') !== -1 &&
+                    /\.[a-z]{2,}$/i.test(domain) &&
+                    !/\.(html?|php|aspx?|jsp|exe|zip|rar|pdf|doc|docx|xls|xlsx|jpg|png|gif|css|js)$/i.test(domain)) {
                     domains.push(domain);
                 }
             });

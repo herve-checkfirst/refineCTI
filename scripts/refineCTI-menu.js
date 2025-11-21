@@ -281,54 +281,110 @@
             module = RefineCTI;
         }
 
-        // Store module and function in window scope for GREL expression
-        window._refineCTI_currentModule = module;
-        window._refineCTI_currentFunction = functionName;
-        window._refineCTI_defangResult = defangResult;
-        window._refineCTI_moduleName = moduleName;
-
-        // Use a GREL-based column addition that processes ALL rows
-        var grelExpression;
-        if (moduleName === 'RefineCTICrypto' || moduleName === 'RefineCTISocial' || moduleName === 'RefineCTIHash') {
-            // These modules don't use defangResult parameter
-            grelExpression = 'grel:if(value != null, ' +
-                '(function(v) { ' +
-                'var result = window._refineCTI_currentModule[window._refineCTI_currentFunction](String(v)); ' +
-                'return result || ""; ' +
-                '})(value), "")';
-        } else {
-            // IOC module uses defangResult parameter
-            grelExpression = 'grel:if(value != null, ' +
-                '(function(v) { ' +
-                'var result = window._refineCTI_currentModule[window._refineCTI_currentFunction](String(v), window._refineCTI_defangResult); ' +
-                'return result || ""; ' +
-                '})(value), "")';
-        }
-
-        // Create column using column-addition operation
-        Refine.postCoreProcess(
-            'add-column',
-            {},
-            {
-                baseColumnName: baseColumnName,
-                newColumnName: newColumnName,
-                columnInsertIndex: columnIndex + 1,
-                expression: grelExpression,
-                onError: 'set-to-blank',
-                engineConfig: JSON.stringify({
-                    'facets': [],
-                    'mode': 'row-based'
+        // Get ALL rows from the project using the API
+        $.ajax({
+            url: '/command/core/get-rows?project=' + theProject.id,
+            type: 'POST',
+            data: {
+                engine: JSON.stringify({
+                    facets: [],
+                    mode: 'row-based'
                 })
             },
+            success: function(data) {
+                // Find column cellIndex from the model
+                var cellIndex = null;
+                for (var i = 0; i < theProject.columnModel.columns.length; i++) {
+                    if (theProject.columnModel.columns[i].name === baseColumnName) {
+                        cellIndex = theProject.columnModel.columns[i].cellIndex;
+                        break;
+                    }
+                }
+
+                if (cellIndex === null) {
+                    alert('Column not found: ' + baseColumnName);
+                    return;
+                }
+
+                // Build value map from ALL rows
+                var valueMap = {};
+                var rows = data.rows || [];
+
+                for (var j = 0; j < rows.length; j++) {
+                    var row = rows[j];
+                    if (row.cells && row.cells[cellIndex] && row.cells[cellIndex].v !== null) {
+                        var originalValue = String(row.cells[cellIndex].v);
+                        if (!valueMap[originalValue]) {
+                            var extracted;
+                            if (moduleName === 'RefineCTICrypto' || moduleName === 'RefineCTISocial' || moduleName === 'RefineCTIHash') {
+                                extracted = module[functionName](originalValue);
+                            } else {
+                                extracted = module[functionName](originalValue, defangResult);
+                            }
+                            valueMap[originalValue] = extracted || '';
+                        }
+                    }
+                }
+
+                // Create the new column and populate with mass edit
+                createColumnWithMassEdit(baseColumnName, columnIndex, newColumnName, valueMap);
+            },
+            error: function() {
+                alert('Failed to retrieve rows from project');
+            }
+        });
+    }
+
+    // Create column and populate it with extracted values using mass edit
+    function createColumnWithMassEdit(baseColumnName, columnIndex, newColumnName, valueMap) {
+        var operations = [];
+
+        // Step 1: Create the new column
+        operations.push({
+            'op': 'core/column-addition',
+            'engineConfig': {
+                'facets': [],
+                'mode': 'row-based'
+            },
+            'newColumnName': newColumnName,
+            'columnInsertIndex': columnIndex + 1,
+            'baseColumnName': baseColumnName,
+            'expression': 'value',
+            'onError': 'set-to-blank'
+        });
+
+        // Step 2: Mass edit to replace with extracted values
+        var edits = [];
+        for (var originalValue in valueMap) {
+            if (Object.prototype.hasOwnProperty.call(valueMap, originalValue)) {
+                edits.push({
+                    from: [originalValue],
+                    to: valueMap[originalValue]
+                });
+            }
+        }
+
+        if (edits.length > 0) {
+            operations.push({
+                'op': 'core/mass-edit',
+                'engineConfig': {
+                    'facets': [],
+                    'mode': 'row-based'
+                },
+                'columnName': newColumnName,
+                'expression': 'value',
+                'edits': edits
+            });
+        }
+
+        // Apply all operations
+        Refine.postCoreProcess(
+            'apply-operations',
+            {},
+            { operations: JSON.stringify(operations) },
             { modelsChanged: true },
             {
                 onDone: function(o) {
-                    // Clean up temporary variables
-                    delete window._refineCTI_currentModule;
-                    delete window._refineCTI_currentFunction;
-                    delete window._refineCTI_defangResult;
-                    delete window._refineCTI_moduleName;
-
                     if (o.code === 'ok' || o.code === 'pending') {
                         Refine.update({ modelsChanged: true });
                     } else {
@@ -336,12 +392,6 @@
                     }
                 },
                 onError: function(e) {
-                    // Clean up temporary variables
-                    delete window._refineCTI_currentModule;
-                    delete window._refineCTI_currentFunction;
-                    delete window._refineCTI_defangResult;
-                    delete window._refineCTI_moduleName;
-
                     alert('Error creating column: ' + (e.message || 'Unknown error'));
                 }
             }
@@ -352,51 +402,92 @@
     function performDefangFang(column, operation) {
         var baseColumnName = column.name;
 
-        // Store operation in window scope for GREL expression
-        window._refineCTI_operation = operation;
-
-        // Use a GREL-based text transform that processes ALL rows
-        var grelExpression = 'grel:if(value != null, ' +
-            '(function(v) { ' +
-            'var result = RefineCTI[window._refineCTI_operation](String(v)); ' +
-            'return result || v; ' +
-            '})(value), value)';
-
-        // Apply transformation using text-transform operation
-        Refine.postCoreProcess(
-            'text-transform',
-            {},
-            {
-                columnName: baseColumnName,
-                expression: grelExpression,
-                onError: 'keep-original',
-                repeat: false,
-                repeatCount: 0,
-                engineConfig: JSON.stringify({
-                    'facets': [],
-                    'mode': 'row-based'
+        // Get ALL rows from the project using the API
+        $.ajax({
+            url: '/command/core/get-rows?project=' + theProject.id,
+            type: 'POST',
+            data: {
+                engine: JSON.stringify({
+                    facets: [],
+                    mode: 'row-based'
                 })
             },
-            { cellsChanged: true },
-            {
-                onDone: function(o) {
-                    // Clean up temporary variable
-                    delete window._refineCTI_operation;
-
-                    if (o.code === 'ok' || o.code === 'pending') {
-                        Refine.update({ modelsChanged: true });
-                    } else {
-                        alert('Failed to transform values. Error: ' + (o.message || 'Unknown error'));
+            success: function(data) {
+                // Find column cellIndex from the model
+                var cellIndex = null;
+                for (var i = 0; i < theProject.columnModel.columns.length; i++) {
+                    if (theProject.columnModel.columns[i].name === baseColumnName) {
+                        cellIndex = theProject.columnModel.columns[i].cellIndex;
+                        break;
                     }
-                },
-                onError: function(e) {
-                    // Clean up temporary variable
-                    delete window._refineCTI_operation;
-
-                    alert('Error transforming column: ' + (e.message || 'Unknown error'));
                 }
+
+                if (cellIndex === null) {
+                    alert('Column not found: ' + baseColumnName);
+                    return;
+                }
+
+                // Build transformation map from ALL rows
+                var transformMap = {};
+                var rows = data.rows || [];
+
+                for (var j = 0; j < rows.length; j++) {
+                    var row = rows[j];
+                    if (row.cells && row.cells[cellIndex] && row.cells[cellIndex].v !== null) {
+                        var originalValue = String(row.cells[cellIndex].v);
+                        if (!transformMap[originalValue]) {
+                            transformMap[originalValue] = RefineCTI[operation](originalValue);
+                        }
+                    }
+                }
+
+                // Apply mass edit
+                var edits = [];
+                for (var originalValue in transformMap) {
+                    if (Object.prototype.hasOwnProperty.call(transformMap, originalValue)) {
+                        edits.push({
+                            from: [originalValue],
+                            to: transformMap[originalValue]
+                        });
+                    }
+                }
+
+                if (edits.length === 0) {
+                    alert('No values to transform in column ' + baseColumnName);
+                    return;
+                }
+
+                Refine.postCoreProcess(
+                    'mass-edit',
+                    {},
+                    {
+                        columnName: baseColumnName,
+                        expression: 'value',
+                        edits: JSON.stringify(edits),
+                        engineConfig: JSON.stringify({
+                            'facets': [],
+                            'mode': 'row-based'
+                        })
+                    },
+                    { cellsChanged: true },
+                    {
+                        onDone: function(o) {
+                            if (o.code === 'ok' || o.code === 'pending') {
+                                Refine.update({ modelsChanged: true });
+                            } else {
+                                alert('Failed to transform values. Error: ' + (o.message || 'Unknown error'));
+                            }
+                        },
+                        onError: function(e) {
+                            alert('Error transforming column: ' + (e.message || 'Unknown error'));
+                        }
+                    }
+                );
+            },
+            error: function() {
+                alert('Failed to retrieve rows from project');
             }
-        );
+        });
     }
 
 })();

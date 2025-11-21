@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Domain Extraction Fix</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>Domain Extraction Test</h1>
+    <div id="results"></div>
+
+    <script src="scripts/refineCTI-core.js"></script>
+    <script src="scripts/refineCTI-IOC.js"></script>
+    <script>
+        // Test cases from user bug report
+        var testCases = [
+            {
+                name: "Test 1: Italian URL with path",
+                input: "http://www.passionando.it/moda/come-scegliere-labbigliamento-che-ti-fa-sembrare-piu-sottile.html",
+                expected: "www.passionando.it"
+            },
+            {
+                name: "Test 2: Greek URL with path",
+                input: "https://www.zwdia24.gr/astrologikes-provlepseis/mhniaies-aisthhmatikes-astrologikes-provlepseis-noembriou",
+                expected: "www.zwdia24.gr"
+            },
+            {
+                name: "Test 3: Multiple URLs",
+                input: "Visit http://example.com/page.html and https://test.org/file.php",
+                expected: "example.com, test.org"
+            },
+            {
+                name: "Test 4: Standalone domain",
+                input: "Contact us at example.com for more info",
+                expected: "example.com"
+            },
+            {
+                name: "Test 5: Mixed content",
+                input: "http://evil.com/malware.exe and backup at badsite.org",
+                expected: "evil.com, badsite.org"
+            }
+        ];
+
+        var resultsDiv = document.getElementById('results');
+        var passed = 0;
+        var failed = 0;
+
+        testCases.forEach(function(test) {
+            var result = RefineCTIIOC.extractDomains(test.input, false);
+            var success = result === test.expected;
+
+            if (success) {
+                passed++;
+            } else {
+                failed++;
+            }
+
+            var resultHtml = '<div style="margin: 10px 0; padding: 10px; background-color: ' +
+                (success ? '#d4edda' : '#f8d7da') + '; border: 1px solid ' +
+                (success ? '#c3e6cb' : '#f5c6cb') + '; border-radius: 4px;">';
+            resultHtml += '<strong>' + test.name + '</strong><br>';
+            resultHtml += '<strong>Input:</strong> ' + test.input + '<br>';
+            resultHtml += '<strong>Expected:</strong> ' + test.expected + '<br>';
+            resultHtml += '<strong>Got:</strong> ' + result + '<br>';
+            resultHtml += '<strong>Status:</strong> ' + (success ? 'PASS' : 'FAIL');
+            resultHtml += '</div>';
+
+            resultsDiv.innerHTML += resultHtml;
+        });
+
+        // Summary
+        var summaryHtml = '<div style="margin: 20px 0; padding: 15px; background-color: #e7f3ff; border: 2px solid #004085; border-radius: 4px;">';
+        summaryHtml += '<h2>Summary</h2>';
+        summaryHtml += '<strong>Total Tests:</strong> ' + testCases.length + '<br>';
+        summaryHtml += '<strong>Passed:</strong> ' + passed + '<br>';
+        summaryHtml += '<strong>Failed:</strong> ' + failed;
+        summaryHtml += '</div>';
+
+        resultsDiv.innerHTML += summaryHtml;
+    </script>
+</body>
+</html>
